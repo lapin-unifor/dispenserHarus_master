@@ -60,7 +60,12 @@ void setup() {
 
 void loop() {
   if(timerLeds < millis()){
-    timerLeds = millis() + 1000;
+    if(estadoLed){
+      timerLeds = millis() + 1900;
+    } else {
+      timerLeds = millis() + 100;
+    }
+    
     estadoLed = !estadoLed;
     if(modulo1) pcf1.digitalWrite(1,estadoLed);
     if(modulo2) pcf2.digitalWrite(1,estadoLed);
