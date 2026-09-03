@@ -41,7 +41,7 @@ void setup() {
   Serial.begin(115200);
   Wire.begin(19, 20);
   delay(1000);
-  while (!Serial) { delay(10); }
+  //while (!Serial) { delay(10); }
   mensagem("Dispenser Harus MVP");
 
   if (!pcf1.begin(0x20, &Wire)) {
@@ -99,8 +99,8 @@ void loop() {
     
     estadoLed = !estadoLed;
     if(modulo1) pcf1.digitalWrite(1,estadoLed ^ liberado1);
-    if(modulo2) pcf2.digitalWrite(1,estadoLed ^ liberado1);
-    if(modulo3) pcf3.digitalWrite(1,estadoLed ^ liberado1);
+    if(modulo2) pcf2.digitalWrite(1,estadoLed ^ liberado2);
+    if(modulo3) pcf3.digitalWrite(1,estadoLed ^ liberado3);
   }
   if(timerLedPiscando < millis()){
     timerLedPiscando = millis() + 100;
@@ -125,6 +125,25 @@ void loop() {
     delay(250);
   }
   
+  if(pcf2.digitalRead(0)==0){
+    if(liberado2){
+      rele2 = !rele2;
+      mensagem("Acionando rele 2");
+    } else {
+      mensagem("Acesso negado ao Mod2!");
+    }
+    delay(250);
+  }
+
+  if(pcf3.digitalRead(0)==0){
+    if(liberado3){
+      rele3 = !rele3;
+      mensagem("Acionando rele 3");
+    } else {
+      mensagem("Acesso negado ao Mod3!");
+    }
+    delay(250);
+  }
   
   if(modulo1) pcf1.digitalWrite(2,!rele1);
   if(modulo2) pcf2.digitalWrite(2,!rele2);
