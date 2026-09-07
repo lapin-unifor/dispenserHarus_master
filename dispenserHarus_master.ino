@@ -10,6 +10,7 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <time.h>
+#include <Adafruit_PN532.h>
 
 LiquidCrystal_I2C lcd(0x26,20,4);
 String terminal1 = "";
@@ -49,6 +50,8 @@ double timerLedPiscando = 0;
 double timerStatus = 30000;
 double timerLcd = 10000;
 double timerHora = 0;
+double timerLiberacao = 0; //define o tempo que uma liberação pode ocorrer
+bool emLiberacao = false;
 
 // Instancia o objeto Preferences
 Preferences preferences;
@@ -63,6 +66,12 @@ const long  gmtOffset_sec = -3 * 3600; // Fuso horário UTC-3 (Brasil/Fortaleza)
 const int   daylightOffset_sec = 0;    // Sem horário de verão atualmente no Brasil
 bool horaConfigurada = false;
 struct tm timeinfo;
+
+//config RFID
+#define PN532_IRQ   (2)
+#define PN532_RESET (3)
+
+Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 void setup() {
   Serial.begin(115200);
@@ -84,6 +93,19 @@ void setup() {
   password = preferences.getString("pass", "");
   //while (!Serial) { delay(10); }
   mensagem("Dispenser Harus MVP");
+
+  nfc.begin();
+  uint32_t versiondata = nfc.getFirmwareVersion();
+  if (! versiondata) {
+    //        1---5----10---15--20
+    mensagem("FALHA! RFID nao enc.");
+    while (1); // halt
+  }
+  // Got ok data, print it out!
+  Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX);
+  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
+  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
+  mensagem("Leitor RFID OK!");
 
   if (ssid != "") {
     //        1---5----10---15--20
@@ -230,6 +252,15 @@ void loop() {
     tituloLcd = !tituloLcd;
   }
 
+  if(emLiberacao){
+    if(timerLiberacao < millis()){
+      maquinaDeEstados("x1");
+      maquinaDeEstados("x2");
+      maquinaDeEstados("x3");
+      emLiberacao = false;
+    }
+  }
+
   if(modulo1){
     if(pcf1.digitalRead(0)==0){
       if(liberado1){
@@ -275,7 +306,40 @@ void loop() {
   if(modulo1) pcf1.digitalWrite(2,!rele1);
   if(modulo2) pcf2.digitalWrite(2,!rele2);
   if(modulo3) pcf3.digitalWrite(2,!rele3);
-  
+
+  //RFID NFC
+  uint8_t success;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+
+  // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
+  // 'uid' will be populated with the UID, and uidLength will indicate
+  // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+
+  if (success) {
+    // Display some basic information about the card
+    mensagem("Lendo RFID...");
+    Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
+    Serial.print("  UID Value: ");
+    nfc.PrintHex(uid, uidLength);
+
+    if (uidLength == 4){
+      // We probably have a Mifare Classic card ...
+      uint32_t cardid = uid[0];
+      cardid <<= 8;
+      cardid |= uid[1];
+      cardid <<= 8;
+      cardid |= uid[2];
+      cardid <<= 8;
+      cardid |= uid[3];
+      String numeroRfid = String(cardid);
+      mensagem("RFID #" + numeroRfid);
+      delay(1000);
+      checaUsuario(cardid);
+    }
+    Serial.println("");
+  }
 }
 
 void maquinaDeEstados(String texto){
@@ -293,6 +357,8 @@ void maquinaDeEstados(String texto){
     	if(parametro.toInt() == 1) liberado1 = true;
       if(parametro.toInt() == 2) liberado2 = true;
       if(parametro.toInt() == 3) liberado3 = true;
+      emLiberacao = true;
+      timerLiberacao = millis() + 120000;
     	break;
     case 'x':
       //        1---5----10---15--20
@@ -319,6 +385,19 @@ void maquinaDeEstados(String texto){
       //        1---5----10---15--20
     	mensagem("Comando desconhecido");
   }
+}
+
+void checaUsuario(int identificador){
+  delay(500);
+  //cartões hard coded!
+  if(identificador == 1704012831){
+    maquinaDeEstados("l1"); //libera 1
+    maquinaDeEstados("l3"); //libera 3
+  }
+  if(identificador == 2849453330){
+    maquinaDeEstados("l2"); //libera 2
+  }
+  //aqui ficará o código de checar uma API via consulta HTTP
 }
 
 void printStatus(){
