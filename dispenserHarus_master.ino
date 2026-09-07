@@ -7,6 +7,9 @@
 #include <Adafruit_PCF8574.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
+#include <WiFi.h>
+#include <Preferences.h>
+#include <time.h>
 
 LiquidCrystal_I2C lcd(0x26,20,4);
 String terminal1 = "";
@@ -45,6 +48,21 @@ double timerLeds = 0;
 double timerLedPiscando = 0;
 double timerStatus = 30000;
 double timerLcd = 10000;
+double timerHora = 0;
+
+// Instancia o objeto Preferences
+Preferences preferences;
+
+String ssid = "";
+String password = "";
+bool ipConectado = false;
+
+// Configurações do Servidor NTP (Tempo)
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = -3 * 3600; // Fuso horário UTC-3 (Brasil/Fortaleza) em segundos
+const int   daylightOffset_sec = 0;    // Sem horário de verão atualmente no Brasil
+bool horaConfigurada = false;
+struct tm timeinfo;
 
 void setup() {
   Serial.begin(115200);
@@ -58,8 +76,63 @@ void setup() {
   lcd.setCursor(0,1);
   lcd.print("Iniciando...");
   delay(1000);
+  // Inicia a biblioteca Preferences com o namespace "wifi_config"
+  preferences.begin("wifi_config", false);
+
+  // Lê o SSID e a senha salvos na memória flash
+  ssid = preferences.getString("ssid", "");
+  password = preferences.getString("pass", "");
   //while (!Serial) { delay(10); }
   mensagem("Dispenser Harus MVP");
+
+  if (ssid != "") {
+    //        1---5----10---15--20
+    mensagem("Conectando a rede");
+    mensagem(ssid);
+    
+    // Inicia a tentativa de conexão
+    WiFi.begin(ssid.c_str(), password.c_str());
+    
+    // Aguarda a conexão com um limite de tentativas
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println();
+      //        1---5----10---15--20
+      mensagem("Conectado! IP:");
+      mensagem(WiFi.localIP().toString());
+      ipConectado = true;
+
+      // ==========================================
+      // CONFIGURAÇÃO DO RELÓGIO VIA INTERNET (NTP)
+      // ==========================================
+      //        1---5----10---15--20
+      mensagem("Sinc. relogio NTP...");
+      
+      // Inicia a sincronização de tempo em segundo plano
+      configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+      
+      // Dá um pequeno tempo para a primeira sincronização acontecer
+      delay(2000); 
+      
+      // Exibe a hora obtida
+      printLocalTime();
+
+    } else {
+      //        1---5----10---15--20
+      mensagem("Falha ao conectar!");
+      ipConectado = false;
+    }
+  } else {
+    //        1---5----10---15--20
+    mensagem("Nenhuma rede config.");
+    ipConectado = false;
+  }
 
   if (!pcf1.begin(0x20, &Wire)) {
     mensagem("FALHA! Disp1 inativo");
@@ -108,6 +181,12 @@ void loop() {
       txtRecebido = txtRecebido + caractere;
     }
   }
+  if(horaConfigurada){
+    if(timerHora< millis()){
+      timerHora = millis() + 1000;
+      printLocalTime();
+    }
+  }
   if(timerLeds < millis()){
     if(estadoLed){
       timerLeds = millis() + 1900;
@@ -132,6 +211,7 @@ void loop() {
   if(timerStatus < millis()){
     timerStatus = millis() + 60000;
     printStatus();
+    printIp();
   }
 
   //timer de mudar o titulo do LCD
@@ -256,4 +336,36 @@ void mensagem(String msg){
   lcd.print(terminal2.substring(0,20));
   lcd.setCursor(0,3);
   lcd.print(terminal3.substring(0,20));
+}
+
+// Função para imprimir a hora atual no monitor serial
+void printLocalTime() {
+  // getLocalTime() aguarda até que o relógio tenha sido sincronizado
+  if(!getLocalTime(&timeinfo)){
+    //        1---5----10---15--20
+    mensagem("Falha cfg data hora!");
+    horaConfigurada = false;
+    return;
+  }
+  
+  // Imprime no formato: Dia/Mês/Ano Hora:Minuto:Segundo
+  //        1---5----10---15--20
+  //mensagem("Data/Hora atualizada");
+  horaConfigurada = true;
+  //Serial.println(&timeinfo, "%d/%m/%Y %H:%M:%S");
+  char lcdBuffer[21]; // Buffer to hold the string (19 chars + null terminator)
+  // Format the timeinfo struct into a string
+  strftime(lcdBuffer, sizeof(lcdBuffer), "%d/%m/%Y  %H:%M:%S", &timeinfo);
+  //lcd.setCursor(0, 1);
+  //         1---5----10---15--20
+  //lcd.print("                   ");
+  lcd.setCursor(0, 1);
+  lcd.print(lcdBuffer);
+}
+
+void printIp(){
+  lcd.setCursor(0, 2);
+  lcd.print("                    ");
+  lcd.setCursor(0, 2);
+  lcd.print(WiFi.localIP().toString());
 }
