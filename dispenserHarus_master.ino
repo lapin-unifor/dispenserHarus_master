@@ -10,7 +10,7 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <time.h>
-#include <Adafruit_PN532.h>
+//#include <Adafruit_PN532.h>
 
 LiquidCrystal_I2C lcd(0x26,20,4);
 String terminal1 = "";
@@ -47,11 +47,13 @@ bool rele3 = false;
 //timers
 double timerLeds = 0;
 double timerLedPiscando = 0;
-double timerStatus = 30000;
+double timerStatus = 10000;
+int tempoStatus = 10000;
 double timerLcd = 10000;
 double timerHora = 0;
 double timerLiberacao = 0; //define o tempo que uma liberação pode ocorrer
 bool emLiberacao = false;
+int tempoLiberacao = 12000;
 
 // Instancia o objeto Preferences
 Preferences preferences;
@@ -71,7 +73,7 @@ struct tm timeinfo;
 #define PN532_IRQ   (2)
 #define PN532_RESET (3)
 
-Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
+//Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 void setup() {
   Serial.begin(115200);
@@ -94,6 +96,7 @@ void setup() {
   //while (!Serial) { delay(10); }
   mensagem("Dispenser Harus MVP");
 
+  /*
   nfc.begin();
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (! versiondata) {
@@ -105,7 +108,10 @@ void setup() {
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX);
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
+  //nfc.setPassiveActivationRetries(0x01); //corrige trava do NFC no loop()
+  //nfc.SAMConfig();
   mensagem("Leitor RFID OK!");
+  */
 
   if (ssid != "") {
     //        1---5----10---15--20
@@ -204,12 +210,14 @@ void loop() {
       txtRecebido = txtRecebido + caractere;
     }
   }
-  if(horaConfigurada){
-    if(timerHora< millis()){
-      timerHora = millis() + 1000;
+  
+  if(timerHora< millis()){
+    timerHora = millis() + 1000;
+    if(horaConfigurada){
       printLocalTime();
     }
   }
+
   if(timerLeds < millis()){
     if(estadoLed){
       timerLeds = millis() + 1900;
@@ -222,6 +230,7 @@ void loop() {
     if(modulo2) pcf2.digitalWrite(1,estadoLed ^ liberado2);
     if(modulo3) pcf3.digitalWrite(1,estadoLed ^ liberado3);
   }
+
   if(timerLedPiscando < millis()){
     timerLedPiscando = millis() + 100;
     estadoLedPiscando = !estadoLedPiscando;
@@ -232,7 +241,7 @@ void loop() {
 
   //timer de exibir o status do equipamento
   if(timerStatus < millis()){
-    timerStatus = millis() + 60000;
+    timerStatus = millis() + tempoStatus;
     printStatus();
     if(ipConectado) printIp();
   }
@@ -258,6 +267,7 @@ void loop() {
       maquinaDeEstados("x2");
       maquinaDeEstados("x3");
       emLiberacao = false;
+      printStatus();
     }
   }
 
@@ -307,7 +317,8 @@ void loop() {
   if(modulo2) pcf2.digitalWrite(2,!rele2);
   if(modulo3) pcf3.digitalWrite(2,!rele3);
 
-  //RFID NFC
+  /*
+   //RFID NFC
   uint8_t success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
@@ -340,6 +351,7 @@ void loop() {
     }
     Serial.println("");
   }
+  */
 }
 
 void maquinaDeEstados(String texto){
@@ -358,7 +370,7 @@ void maquinaDeEstados(String texto){
       if(parametro.toInt() == 2) liberado2 = true;
       if(parametro.toInt() == 3) liberado3 = true;
       emLiberacao = true;
-      timerLiberacao = millis() + 120000;
+      timerLiberacao = millis() + tempoLiberacao;
     	break;
     case 'x':
       //        1---5----10---15--20
@@ -398,19 +410,34 @@ void checaUsuario(int identificador){
     maquinaDeEstados("l2"); //libera 2
   }
   //aqui ficará o código de checar uma API via consulta HTTP
+  printStatus();
 }
 
 void printStatus(){
   String statusTxt = "Status: ";
   if(modulo1){
-    statusTxt = statusTxt + "[D1]";
-  } else statusTxt = statusTxt + "[--]";
+    if(liberado1){
+      statusTxt = statusTxt + "[L1]";
+    } else {
+      statusTxt = statusTxt + " D1 ";
+    }
+  } else statusTxt = statusTxt + " -- ";
   if(modulo2) {
-    statusTxt = statusTxt + "[D2]";
-  } else statusTxt = statusTxt + "[--]";
+    if(liberado2){
+      statusTxt = statusTxt + "[L2]";
+    } else {
+      statusTxt = statusTxt + " D2 ";
+    }
+  } else statusTxt = statusTxt + " -- ";
   if(modulo3) {
-    statusTxt = statusTxt + "[D3]";
-  } else statusTxt = statusTxt + "[--]";
+    if(liberado3){
+      statusTxt = statusTxt + "[L3]";
+    } else {
+      statusTxt = statusTxt + " D3 ";
+    }
+  } else {
+    statusTxt = statusTxt + " -- ";
+  }
   mensagem(statusTxt);
 }
 
