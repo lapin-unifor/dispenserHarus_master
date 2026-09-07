@@ -166,7 +166,7 @@ void setup() {
     pcf3.digitalWrite(2, HIGH);
   }
   delay(3000);
-  printIp();
+  if(ipConectado) printIp();
 }
 
 void loop() {
@@ -212,7 +212,7 @@ void loop() {
   if(timerStatus < millis()){
     timerStatus = millis() + 60000;
     printStatus();
-    printIp();
+    if(ipConectado) printIp();
   }
 
   //timer de mudar o titulo do LCD
@@ -279,6 +279,7 @@ void loop() {
 }
 
 void maquinaDeEstados(String texto){
+  texto.trim();
   //Receber comandos, analisar e chamar as devidas funções
   String comando = texto.substring(0,1); //isto recebe o 1º caractere
   //Serial.println("Comando: " + comando);
@@ -299,6 +300,20 @@ void maquinaDeEstados(String texto){
     	if(parametro.toInt() == 1) liberado1 = rele1 = false;
       if(parametro.toInt() == 2) liberado2 = rele2 = false;
       if(parametro.toInt() == 3) liberado3 = rele3 = false;
+    	break;
+    case 'r':
+      //        1---5----10---15--20
+    	mensagem("SSID:" + parametro);
+      preferences.putString("ssid", parametro);
+      Serial.print("SSID salvo na memoria FLASH com sucesso: ");
+      Serial.println("Reinicie o ESP32 para conectar.");
+    	break;
+    case 's':
+      //        1---5----10---15--20
+    	mensagem("pass:" + parametro);
+      preferences.putString("pass", parametro);
+      Serial.print("Senha salva na memoria FLASH com sucesso: ");
+      Serial.println("Reinicie o ESP32 para conectar.");
     	break;
     default:
       //        1---5----10---15--20
@@ -327,8 +342,6 @@ void mensagem(String msg){
     lcd.print("                    ");
     lcd.setCursor(0,2);
     lcd.print("                    ");
-    lcd.setCursor(0,3);
-    lcd.print("                    ");
     terminal1 = terminal2;
     terminal2 = terminal3;
     
@@ -338,6 +351,8 @@ void mensagem(String msg){
     lcd.print(terminal2.substring(0,20));
   }
   terminal3 = msg;
+  lcd.setCursor(0,3);
+  lcd.print("                    ");
   lcd.setCursor(0,3);
   lcd.print(terminal3.substring(0,20));
 }
