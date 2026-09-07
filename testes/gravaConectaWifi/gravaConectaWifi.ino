@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <Preferences.h>
+#include <time.h> // Biblioteca nativa para lidar com o tempo
 
 // Instancia o objeto Preferences
 Preferences preferences;
@@ -7,21 +8,38 @@ Preferences preferences;
 String ssid = "";
 String password = "";
 
+// Configurações do Servidor NTP (Tempo)
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = -3 * 3600; // Fuso horário UTC-3 (Brasil/Fortaleza) em segundos
+const int   daylightOffset_sec = 0;    // Sem horário de verão atualmente no Brasil
+
+// Função para imprimir a hora atual no monitor serial
+void printLocalTime() {
+  struct tm timeinfo;
+  // getLocalTime() aguarda até que o relógio tenha sido sincronizado
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Falha ao obter a hora do servidor NTP.");
+    return;
+  }
+  
+  // Imprime no formato: Dia/Mês/Ano Hora:Minuto:Segundo
+  Serial.print("Data/Hora atualizada: ");
+  Serial.println(&timeinfo, "%d/%m/%Y %H:%M:%S");
+}
+
 void setup() {
   // Inicia a comunicação serial
   Serial.begin(115200);
   delay(1000);
 
   // Inicia a biblioteca Preferences com o namespace "wifi_config"
-  // O segundo parâmetro "false" indica que abriremos no modo Leitura/Escrita
   preferences.begin("wifi_config", false);
 
   // Lê o SSID e a senha salvos na memória flash
-  // O segundo parâmetro ("") é o valor padrão caso a chave ainda não exista
   ssid = preferences.getString("ssid", "");
   password = preferences.getString("pass", "");
 
-  Serial.println("\n--- ESP32-C6 Wi-Fi Manager ---");
+  Serial.println("\n--- ESP32-C6 Wi-Fi & Time Manager ---");
   
   if (ssid != "") {
     Serial.print("Tentando conectar a rede: ");
@@ -30,7 +48,7 @@ void setup() {
     // Inicia a tentativa de conexão
     WiFi.begin(ssid.c_str(), password.c_str());
     
-    // Aguarda a conexão com um limite de tentativas para não travar o loop principal
+    // Aguarda a conexão com um limite de tentativas
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 20) {
       delay(500);
@@ -42,6 +60,21 @@ void setup() {
       Serial.println("\nConectado com sucesso!");
       Serial.print("Endereço IP: ");
       Serial.println(WiFi.localIP());
+
+      // ==========================================
+      // CONFIGURAÇÃO DO RELÓGIO VIA INTERNET (NTP)
+      // ==========================================
+      Serial.println("\nSincronizando relogio via NTP...");
+      
+      // Inicia a sincronização de tempo em segundo plano
+      configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+      
+      // Dá um pequeno tempo para a primeira sincronização acontecer
+      delay(2000); 
+      
+      // Exibe a hora obtida
+      printLocalTime();
+
     } else {
       Serial.println("\nFalha ao conectar. Verifique as credenciais salvas.");
     }
@@ -57,14 +90,10 @@ void setup() {
 void loop() {
   // Verifica se há dados chegando pela porta serial
   if (Serial.available() > 0) {
-    // Lê a string até detectar uma quebra de linha (Enter)
     String input = Serial.readStringUntil('\n');
-    
-    // Remove espaços em branco ou quebras de linha (como \r) no início e no fim
     input.trim(); 
 
     if (input.length() > 0) {
-      // Separa o comando (primeiro caractere) do valor (resto da string)
       char command = input.charAt(0);
       String value = input.substring(1); 
 
