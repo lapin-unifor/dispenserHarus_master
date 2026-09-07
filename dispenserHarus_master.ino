@@ -166,6 +166,7 @@ void setup() {
     pcf3.digitalWrite(2, HIGH);
   }
   delay(3000);
+  printIp();
 }
 
 void loop() {
@@ -321,19 +322,22 @@ void printStatus(){
 
 void mensagem(String msg){
   Serial.println(msg);
-  lcd.setCursor(0,1);
-  lcd.print("                    ");
-  lcd.setCursor(0,2);
-  lcd.print("                    ");
-  lcd.setCursor(0,3);
-  lcd.print("                    ");
-  terminal1 = terminal2;
-  terminal2 = terminal3;
+  if(ipConectado == false){
+    lcd.setCursor(0,1);
+    lcd.print("                    ");
+    lcd.setCursor(0,2);
+    lcd.print("                    ");
+    lcd.setCursor(0,3);
+    lcd.print("                    ");
+    terminal1 = terminal2;
+    terminal2 = terminal3;
+    
+    lcd.setCursor(0,1);
+    lcd.print(terminal1.substring(0,20));
+    lcd.setCursor(0,2);
+    lcd.print(terminal2.substring(0,20));
+  }
   terminal3 = msg;
-  lcd.setCursor(0,1);
-  lcd.print(terminal1.substring(0,20));
-  lcd.setCursor(0,2);
-  lcd.print(terminal2.substring(0,20));
   lcd.setCursor(0,3);
   lcd.print(terminal3.substring(0,20));
 }
@@ -366,6 +370,6 @@ void printLocalTime() {
 void printIp(){
   lcd.setCursor(0, 2);
   lcd.print("                    ");
-  lcd.setCursor(0, 2);
+  lcd.setCursor(3, 2);
   lcd.print(WiFi.localIP().toString());
 }
