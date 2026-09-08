@@ -35,6 +35,18 @@ products from Adafruit!
 //#include <SPI.h>
 #include <Adafruit_PN532.h>
 
+double timerLed = 0;
+int i = 0;
+#define RGB_PIN RGB_BUILTIN
+const uint8_t coresArcoIris[7][3] = {
+  {255, 0, 0},     // 1. Vermelho
+  {255, 127, 0},   // 2. Laranja
+  {255, 255, 0},   // 3. Amarelo
+  {0, 255, 0},     // 4. Verde
+  {0, 0, 255},     // 5. Azul
+  {75, 0, 130},    // 6. Anil (Indigo)
+  {148, 0, 211}    // 7. Violeta
+};
 /*
 // If using the breakout with SPI, define the pins for SPI communication.
 #define PN532_SCK  (2)
@@ -117,5 +129,13 @@ void loop(void) {
     }
     Serial.println("");
   }
+  if(timerLed < millis()){
+    timerLed = millis() + 1000;
+    neopixelWrite(RGB_PIN, coresArcoIris[i][0], coresArcoIris[i][1], coresArcoIris[i][2]);
+    i += 1;
+    if(i>6) i=0;
+    Serial.println("ping!");
+  }
+  
 }
 
