@@ -10,7 +10,7 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <time.h>
-//#include <Adafruit_PN532.h>
+#include <Adafruit_PN532.h>
 
 LiquidCrystal_I2C lcd(0x26,20,4);
 String terminal1 = "";
@@ -35,7 +35,7 @@ bool estadoLed = false;
 bool estadoLedPiscando = false;
 
 //liberado para uso
-bool liberado1 = true;
+bool liberado1 = false;
 bool liberado2 = false;
 bool liberado3 = false;
 
@@ -73,7 +73,7 @@ struct tm timeinfo;
 #define PN532_IRQ   (2)
 #define PN532_RESET (3)
 
-//Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
+Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 void setup() {
   Serial.begin(115200);
@@ -96,7 +96,7 @@ void setup() {
   //while (!Serial) { delay(10); }
   mensagem("Dispenser Harus MVP");
 
-  /*
+  
   nfc.begin();
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (! versiondata) {
@@ -108,10 +108,8 @@ void setup() {
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX);
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
-  //nfc.setPassiveActivationRetries(0x01); //corrige trava do NFC no loop()
-  //nfc.SAMConfig();
+
   mensagem("Leitor RFID OK!");
-  */
 
   if (ssid != "") {
     //        1---5----10---15--20
@@ -317,7 +315,7 @@ void loop() {
   if(modulo2) pcf2.digitalWrite(2,!rele2);
   if(modulo3) pcf3.digitalWrite(2,!rele3);
 
-  /*
+  
    //RFID NFC
   uint8_t success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
@@ -326,7 +324,7 @@ void loop() {
   // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
   // 'uid' will be populated with the UID, and uidLength will indicate
   // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 100);
 
   if (success) {
     // Display some basic information about the card
@@ -351,7 +349,6 @@ void loop() {
     }
     Serial.println("");
   }
-  */
 }
 
 void maquinaDeEstados(String texto){
