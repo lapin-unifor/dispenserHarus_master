@@ -17,6 +17,11 @@ String terminal1 = "";
 String terminal2 = "";
 String terminal3 = "";
 
+byte name0x3[] = { B00011, B00100, B01001, B10010, B00100, B00001, B00010, B00000 };
+byte name0x0[] = { B00000, B00000, B00000, B00000, B11111, B11111, B11111, B11111 };
+byte name0x1[] = { B11100, B00010, B11001, B00101, B10101, B10000, B10000, B10000 };
+byte name0x4[] = { B11000, B00100, B10010, B01001, B00100, B10000, B01000, B00000 };
+
 Adafruit_PCF8574 pcf1;
 Adafruit_PCF8574 pcf2;
 Adafruit_PCF8574 pcf3;
@@ -62,6 +67,8 @@ String ssid = "";
 String password = "";
 bool ipConectado = false;
 
+bool rfidPresente = false;
+
 // Configurações do Servidor NTP (Tempo)
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = -3 * 3600; // Fuso horário UTC-3 (Brasil/Fortaleza) em segundos
@@ -82,6 +89,10 @@ void setup() {
   lcd.init();
   lcd.init();
   lcd.backlight();
+  lcd.createChar(0, name0x3);
+  lcd.createChar(1, name0x0);
+  lcd.createChar(2, name0x1);
+  lcd.createChar(3, name0x4);
   lcd.setCursor(0,0);
   lcd.print("  Harus Tecnologia  ");
   lcd.setCursor(0,1);
@@ -102,14 +113,16 @@ void setup() {
   if (! versiondata) {
     //        1---5----10---15--20
     mensagem("FALHA! RFID nao enc.");
-    while (1); // halt
-  }
-  // Got ok data, print it out!
-  Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX);
-  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
-  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
+    //while (1); // halt
+  } else {
+    // Got ok data, print it out!
+    Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX);
+    Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
+    Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
 
-  mensagem("Leitor RFID OK!");
+    mensagem("Leitor RFID OK!");
+    rfidPresente = true;
+  }
 
   if (ssid != "") {
     //        1---5----10---15--20
@@ -315,39 +328,40 @@ void loop() {
   if(modulo2) pcf2.digitalWrite(2,!rele2);
   if(modulo3) pcf3.digitalWrite(2,!rele3);
 
-  
-   //RFID NFC
-  uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-  uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+  if(rfidPresente){
+    //RFID NFC
+    uint8_t success;
+    uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+    uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
 
-  // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
-  // 'uid' will be populated with the UID, and uidLength will indicate
-  // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 100);
+    // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
+    // 'uid' will be populated with the UID, and uidLength will indicate
+    // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
+    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 100);
 
-  if (success) {
-    // Display some basic information about the card
-    mensagem("Lendo RFID...");
-    Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
-    Serial.print("  UID Value: ");
-    nfc.PrintHex(uid, uidLength);
+    if (success) {
+      // Display some basic information about the card
+      mensagem("Lendo RFID...");
+      Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
+      Serial.print("  UID Value: ");
+      nfc.PrintHex(uid, uidLength);
 
-    if (uidLength == 4){
-      // We probably have a Mifare Classic card ...
-      uint32_t cardid = uid[0];
-      cardid <<= 8;
-      cardid |= uid[1];
-      cardid <<= 8;
-      cardid |= uid[2];
-      cardid <<= 8;
-      cardid |= uid[3];
-      String numeroRfid = String(cardid);
-      mensagem("RFID #" + numeroRfid);
-      delay(1000);
-      checaUsuario(cardid);
+      if (uidLength == 4){
+        // We probably have a Mifare Classic card ...
+        uint32_t cardid = uid[0];
+        cardid <<= 8;
+        cardid |= uid[1];
+        cardid <<= 8;
+        cardid |= uid[2];
+        cardid <<= 8;
+        cardid |= uid[3];
+        String numeroRfid = String(cardid);
+        mensagem("RFID #" + numeroRfid);
+        delay(1000);
+        checaUsuario(cardid);
+      }
+      Serial.println("");
     }
-    Serial.println("");
   }
 }
 
@@ -411,31 +425,55 @@ void checaUsuario(int identificador){
 }
 
 void printStatus(){
-  String statusTxt = "Status: ";
+  String statusTxt = "";
+  if(rfidPresente){
+    statusTxt = statusTxt + "[NF][";
+  } else {
+    statusTxt = statusTxt + "[--][";
+  }
+  if(ipConectado){
+    statusTxt = statusTxt + "ip]";
+  } else {
+    statusTxt = statusTxt + "--]";
+  }
   if(modulo1){
     if(liberado1){
-      statusTxt = statusTxt + "[L1]";
+      statusTxt = statusTxt + "OPEN";
     } else {
-      statusTxt = statusTxt + " D1 ";
+      statusTxt = statusTxt + "[D1]";
     }
-  } else statusTxt = statusTxt + " -- ";
+  } else statusTxt = statusTxt + "[--]";
   if(modulo2) {
     if(liberado2){
-      statusTxt = statusTxt + "[L2]";
+      statusTxt = statusTxt + "OPEN";
     } else {
-      statusTxt = statusTxt + " D2 ";
+      statusTxt = statusTxt + "[D2]";
     }
-  } else statusTxt = statusTxt + " -- ";
+  } else statusTxt = statusTxt + "[--]";
   if(modulo3) {
     if(liberado3){
-      statusTxt = statusTxt + "[L3]";
+      statusTxt = statusTxt + "OPEN";
     } else {
-      statusTxt = statusTxt + " D3 ";
+      statusTxt = statusTxt + "[D3]";
     }
   } else {
-    statusTxt = statusTxt + " -- ";
+    statusTxt = statusTxt + "[--]";
   }
   mensagem(statusTxt);
+  if(rfidPresente){
+    //simbolo RFID
+    lcd.setCursor(1, 3);
+    lcd.write(0);
+    lcd.setCursor(2, 3);
+    lcd.write(1);
+  }
+  if(ipConectado){
+    //simbolo WIFI
+    lcd.setCursor(5, 3);
+    lcd.write(2);
+    lcd.setCursor(6, 3);
+    lcd.write(3);
+  }
 }
 
 void mensagem(String msg){
