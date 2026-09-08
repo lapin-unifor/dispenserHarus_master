@@ -17,9 +17,9 @@ String terminal1 = "";
 String terminal2 = "";
 String terminal3 = "";
 
-byte name0x3[] = { B00011, B00100, B01001, B10010, B00100, B00001, B00010, B00000 };
 byte name0x0[] = { B00000, B00000, B00000, B00000, B11111, B11111, B11111, B11111 };
 byte name0x1[] = { B11100, B00010, B11001, B00101, B10101, B10000, B10000, B10000 };
+byte name0x3[] = { B00011, B00100, B01001, B10010, B00100, B00001, B00010, B00000 };
 byte name0x4[] = { B11000, B00100, B10010, B01001, B00100, B10000, B01000, B00000 };
 
 Adafruit_PCF8574 pcf1;
@@ -70,7 +70,7 @@ bool ipConectado = false;
 bool rfidPresente = false;
 
 // Configurações do Servidor NTP (Tempo)
-const char* ntpServer = "pool.ntp.org";
+const char* ntpServer = "pool.ntp.br";
 const long  gmtOffset_sec = -3 * 3600; // Fuso horário UTC-3 (Brasil/Fortaleza) em segundos
 const int   daylightOffset_sec = 0;    // Sem horário de verão atualmente no Brasil
 bool horaConfigurada = false;
@@ -89,9 +89,9 @@ void setup() {
   lcd.init();
   lcd.init();
   lcd.backlight();
-  lcd.createChar(0, name0x3);
-  lcd.createChar(1, name0x0);
-  lcd.createChar(2, name0x1);
+  lcd.createChar(0, name0x0);
+  lcd.createChar(1, name0x1);
+  lcd.createChar(2, name0x3);
   lcd.createChar(3, name0x4);
   lcd.setCursor(0,0);
   lcd.print("  Harus Tecnologia  ");
@@ -504,7 +504,7 @@ void printLocalTime() {
   if(!getLocalTime(&timeinfo)){
     //        1---5----10---15--20
     mensagem("Falha cfg data hora!");
-    horaConfigurada = false;
+    //horaConfigurada = false;
     return;
   }
   
